@@ -1,0 +1,23 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: "CodeCommit Repository Cloudformation Template"
+
+Parameters:  
+  projectRepoName:
+    Type : String
+    Default: 'devops-training'
+    Description: Identifies a Project Name
+
+Resources:
+  CodeCommitRepo:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      RepositoryName: !Ref projectRepoName
+      RepositoryDescription: !Sub '${projectRepoName} codecommit repository'
+
+Outputs:
+  RepoName:
+    Value: !GetAtt [CodeCommitRepo, Name]
+    Description: Name of CodeCommit repository.
+  CloneUrlHttp:
+    Value: !GetAtt [CodeCommitRepo, CloneUrlHttp]
+    Description: Http/s URL for cloning of CodeCommit repository.

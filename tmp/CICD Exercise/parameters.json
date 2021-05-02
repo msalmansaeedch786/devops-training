@@ -1,0 +1,6 @@
+
+{ 
+    "Parameters": {
+       "S3BucketName": "devops-training-infrastructure-scripts"
+    }
+}

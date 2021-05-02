@@ -1,0 +1,362 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: devops-training-vpc
+Parameters:
+  vpcEnvironment:
+    Type: String
+    Description: environment for the vpc
+    AllowedValues:
+    - dev
+    - qa
+    - stage
+    - prod
+  vpcName:
+    Type: String
+    Description: name for the vpc
+  vpcCidrBlock:
+    Type: String
+    Description: cidr block for the vpc
+    Default: 10.0.0.0/16
+  vpcPublicSubnet01Name:
+    Type: String
+    Description: name for the vpc public subnet 1
+  vpcPublicSubnet01CidrBlock:
+    Type: String
+    Description: cidr block for the vpc public subnet 1
+    Default: 10.0.1.0/24
+  vpcPublicSubnet02Name:
+    Type: String
+    Description: name for the vpc public subnet 2
+  vpcPublicSubnet02CidrBlock:
+    Type: String
+    Description: cidr block for the vpc public subnet 2
+    Default: 10.0.2.0/24
+  vpcPrivateSubnet01Name:
+    Type: String
+    Description: name for the vpc private subnet 1
+  vpcPrivateSubnet01CidrBlock:
+    Type: String
+    Description: cidr block for the vpc private subnet 1
+    Default: 10.0.3.0/24
+  vpcPrivateSubnet02Name:
+    Type: String
+    Description: name for the vpc private subnet 2
+  vpcPrivateSubnet02CidrBlock:
+    Type: String
+    Description: cidr block for the vpc private subnet 2
+    Default: 10.0.4.0/24
+  EnableDnsSupport:
+    Type: String
+    Description: dns resolution for the resources that are launched in this vpc
+    AllowedValues:
+    - true
+    - false
+  EnableDnsHostnames:
+    Type: String
+    Description: dns Hostnames allocation for the resources that are launched in this
+      vpc
+    AllowedValues:
+    - true
+    - false
+Resources:
+  vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport:
+        Ref: EnableDnsSupport
+      EnableDnsHostnames:
+        Ref: EnableDnsHostnames
+      InstanceTenancy: default
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Sub: ${vpcName}-vpc-${vpcEnvironment}-${AWS::AccountId}
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Sub: ${vpcName}-vpc-${vpcEnvironment}-${AWS::AccountId}-igw
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId:
+        Ref: vpc
+      InternetGatewayId:
+        Ref: InternetGateway
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: us-east-1a
+      VpcId:
+        Ref: vpc
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Sub: ${vpcName}-${vpcPublicSubnet01Name}-${vpcEnvironment}-${AWS::AccountId}
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: us-east-1b
+      VpcId:
+        Ref: vpc
+      CidrBlock: 10.0.2.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Sub: ${vpcName}-${vpcPublicSubnet02Name}-${vpcEnvironment}-${AWS::AccountId}
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: us-east-1a
+      VpcId:
+        Ref: vpc
+      CidrBlock: 10.0.3.0/24
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Sub: ${vpcName}-${vpcPrivateSubnet01Name}-${vpcEnvironment}-${AWS::AccountId}
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: us-east-1b
+      VpcId:
+        Ref: vpc
+      CidrBlock: 10.0.4.0/24
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Sub: ${vpcName}-${vpcPrivateSubnet02Name}-${vpcEnvironment}-${AWS::AccountId}
+  PublicRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: vpc
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Sub: ${vpcName}-vpc-${vpcEnvironment}-${AWS::AccountId}-public-routetable1
+  PublicInternetRoute1:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGateway
+    Properties:
+      RouteTableId:
+        Ref: PublicRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: InternetGateway
+  PublicSubnet01RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PublicSubnet1
+      RouteTableId:
+        Ref: PublicRouteTable1
+  PublicRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: vpc
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Sub: ${vpcName}-vpc-${vpcEnvironment}-${AWS::AccountId}-public-routetable2
+  PublicInternetRoute2:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGateway
+    Properties:
+      RouteTableId:
+        Ref: PublicRouteTable2
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: InternetGateway
+  PublicSubnet02RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PublicSubnet2
+      RouteTableId:
+        Ref: PublicRouteTable2
+  EIP01:
+    DependsOn: AttachGateway
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+  NatGateway01:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId:
+        Fn::GetAtt:
+        - EIP01
+        - AllocationId
+      SubnetId:
+        Ref: PublicSubnet1
+  EIP02:
+    DependsOn: AttachGateway
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+  NatGateway02:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId:
+        Fn::GetAtt:
+        - EIP02
+        - AllocationId
+      SubnetId:
+        Ref: PublicSubnet2
+  PrivateRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: vpc
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Sub: ${vpcName}-vpc-${vpcEnvironment}-${AWS::AccountId}-private-routetable1
+  PrivateInternetRoute1:
+    Type: AWS::EC2::Route
+    DependsOn: NatGateway01
+    Properties:
+      RouteTableId:
+        Ref: PrivateRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId:
+        Ref: NatGateway01
+  PrivateSubnet01RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PrivateSubnet1
+      RouteTableId:
+        Ref: PrivateRouteTable1
+  PrivateRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: vpc
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Sub: ${vpcName}-vpc-${vpcEnvironment}-${AWS::AccountId}-private-routetable2
+  PrivateInternetRoute2:
+    Type: AWS::EC2::Route
+    DependsOn: NatGateway02
+    Properties:
+      RouteTableId:
+        Ref: PrivateRouteTable2
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId:
+        Ref: NatGateway02
+  PrivateSubnet02RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PrivateSubnet2
+      RouteTableId:
+        Ref: PrivateRouteTable2
+  InstanceSecurityGroupPublic:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http, https, ssh to client host public instance
+      VpcId:
+        Ref: vpc
+      Tags:
+      - Key: Name
+        Value: sg-public-instance
+      SecurityGroupIngress:
+      - CidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        ToPort: 80
+        FromPort: 80
+      - CidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        ToPort: 443
+        FromPort: 443
+      - CidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        ToPort: 22
+        FromPort: 22
+      SecurityGroupEgress:
+      - CidrIp: 0.0.0.0/0
+        ToPort: -1
+        IpProtocol: -1
+  InstanceSecurityGroupPrivate:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http, https, ssh to client host private instance
+      VpcId:
+        Ref: vpc
+      Tags:
+      - Key: Name
+        Value: sg-private-instance
+      SecurityGroupIngress:
+      - CidrIp: 10.0.1.0/24
+        IpProtocol: tcp
+        ToPort: 80
+        FromPort: 80
+      - CidrIp: 10.0.1.0/24
+        IpProtocol: tcp
+        ToPort: 443
+        FromPort: 443
+      - CidrIp: 10.0.1.0/24
+        IpProtocol: tcp
+        ToPort: 22
+        FromPort: 22
+      - CidrIp: 10.0.1.0/24
+        IpProtocol: icmp
+        FromPort: 8
+        ToPort: -1
+      SecurityGroupEgress:
+      - CidrIp: 0.0.0.0/0
+        ToPort: -1
+        IpProtocol: -1
+Outputs:
+  VpcId:
+    Description: export vpc id
+    Value:
+      Ref: vpc
+    Export:
+      Name: vpc-id
+  PublicSubnet1Id:
+    Description: export public subnet one id
+    Value:
+      Ref: PublicSubnet1
+    Export:
+      Name: vpc-public-subnet-one-id
+  PublicSubnet2Id:
+    Description: export public subnet two id
+    Value:
+      Ref: PublicSubnet2
+    Export:
+      Name: vpc-public-subnet-two-id
+  PrivateSubnet1Id:
+    Description: export private subnet one id
+    Value:
+      Ref: PrivateSubnet1
+    Export:
+      Name: vpc-private-subnet-one-id
+  PrivateSubnet2Id:
+    Description: export private subnet two id
+    Value:
+      Ref: PrivateSubnet2
+    Export:
+      Name: vpc-private-subnet-two-id
+  SecurityGroupPublicInstancce:
+    Description: export security group public instance
+    Value:
+      Ref: InstanceSecurityGroupPublic
+    Export:
+      Name: vpc-security-group-public-instance-id
+  SecurityGroupPrivateInstancce:
+    Description: export security group private instance
+    Value:
+      Ref: InstanceSecurityGroupPrivate
+    Export:
+      Name: vpc-security-group-private-instance-id

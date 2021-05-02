@@ -1,0 +1,105 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: cloudformation script to spin up docker containers within ecs
+
+Resources:
+  ECSRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ecs.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceRole
+      RoleName: ECS_Service_Role
+  ECSTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ecs-tasks.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      RoleName: ECS_Task_Role
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: dt-ecs-cluster
+  ECSTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      RequiresCompatibilities:
+      - FARGATE
+      NetworkMode: awsvpc
+      Cpu: 256
+      Memory: 0.5GB
+      ExecutionRoleArn:
+        Ref: ECSTaskRole
+      ContainerDefinitions:
+      - Name: dt-container
+        Image: 287306605618.dkr.ecr.us-east-1.amazonaws.com/hello-repository:latest
+        PortMappings:
+        - ContainerPort: 80
+          HostPort: 80
+  ECSService:
+    Type: AWS::ECS::Service
+    Properties:
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+          - Fn::ImportValue: vpc-private-subnet-one-id
+          - Fn::ImportValue: vpc-private-subnet-two-id
+          SecurityGroups:
+          - Fn::ImportValue: lb-sg
+      LaunchType: FARGATE
+      TaskDefinition:
+        Ref: ECSTaskDefinition
+      DesiredCount: 1
+      LoadBalancers:
+      - TargetGroupArn:
+          Fn::ImportValue: lb-tg
+        ContainerPort: 80
+        ContainerName: dt-container
+      Cluster:
+        Ref: ECSCluster
+
+Outputs:
+  ECSClusterName:
+    Description: ecs cluster name
+    Value:
+      Ref: ECSCluster
+    Export:
+      Name: ecs-cluster-name
+  ECSTaskArn:
+    Description: ccs task arn
+    Value:
+      Ref: ECSTaskDefinition
+    Export:
+      Name: ecs-task-arn
+  ECSServiceArn:
+    Description: ecs service arn
+    Value:
+      Ref: ECSService
+    Export:
+      Name: ecs-service-arn
+  ECSServiceName:
+    Description: ecs service name
+    Value:
+      Fn::GetAtt:
+      - ECSService
+      - Name
+    Export:
+      Name: ecs-service-name

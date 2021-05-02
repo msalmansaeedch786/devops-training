@@ -1,0 +1,49 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: S3 bucket with default encryption
+Resources:
+
+  MyS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'mys3bucket-${AWS::Region}-${AWS::AccountId}'
+
+  MyIamRole:
+    Type: AWS::IAM::Role
+    Properties: 
+      RoleName: my-s3-admin-access
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - 
+            Effect: "Allow"
+            Principal: 
+              Service: 
+                - "ec2.amazonaws.com"
+            Action: 
+              - "sts:AssumeRole"
+      Policies:
+      -
+        PolicyName: "s3-full-admin-access"
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            -
+              Effect: "Allow"
+              Action: "s3:*"
+              Resource: 
+              - !GetAtt MyS3Bucket.Arn
+  
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: "/"
+      Roles: 
+      - Ref: MyIamRole
+
+  MyEC2Instance: 
+    Type: AWS::EC2::Instance
+    Properties: 
+      ImageId: "ami-0b69ea66ff7391e80"
+      InstanceType: t2.micro
+      IamInstanceProfile: !Ref InstanceProfile
+      KeyName: DevOps-Training

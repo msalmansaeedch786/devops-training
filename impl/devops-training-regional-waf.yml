@@ -1,0 +1,48 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates an AWS WAF configuration that protects against common attacks
+
+Resources:
+  MyWebACL:
+    DependsOn: MyWebACLRule
+    Type: AWS::WAFRegional::WebACL
+    Properties:
+      Name: dt-waf-web-acl
+      DefaultAction:
+        Type: ALLOW
+      MetricName: dtwafwebacl
+      Rules:
+        - Action:
+            Type: ALLOW
+          Priority: 1
+          RuleId: !Ref MyWebACLRule
+  MyWebACLRule:
+    DependsOn: MyWebACLCondition
+    Type: 'AWS::WAFRegional::Rule'
+    Properties:
+      Name: dt-waf-web-acl-rule
+      MetricName: dtwafwebaclrule
+      Predicates:
+        - DataId: !Ref MyWebACLCondition
+          Negated: false
+          Type: IPMatch
+  MyWebACLCondition:
+    Type: AWS::WAFRegional::IPSet
+    Properties:
+      Name: dt-waf-web-acl-condition
+      IPSetDescriptors:
+        - Type: IPV4
+          Value: 203.130.20.136/29
+        - Type: IPV4
+          Value: 122.129.85.136/29
+        - Type: IPV4
+          Value: 116.58.46.176/28
+  MyWebACLAssociation:
+    DependsOn: MyWebACL
+    Type: 'AWS::WAFRegional::WebACLAssociation'
+    Properties: 
+        ResourceArn: !ImportValue lb-arn
+        WebACLId: !Ref MyWebACL
+
+Outputs: 
+  MyWebACL: 
+    Value: !Ref MyWebACL

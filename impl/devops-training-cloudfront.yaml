@@ -1,0 +1,35 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Template to create CloudFront distribution'
+
+Resources:
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Origins:
+          - DomainName: !ImportValue lb-dns
+            Id: !ImportValue lb
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: http-only
+        Enabled: true
+        Comment: Somecomment
+        DefaultRootObject: index.html
+        DefaultCacheBehavior: 
+          TargetOriginId: !ImportValue lb
+          ViewerProtocolPolicy: allow-all
+          ForwardedValues:
+            Cookies:
+              Forward: none
+            QueryString: false
+        ViewerCertificate:
+          AcmCertificateArn: arn:aws:acm:us-east-1:287306605618:certificate/349fe5dc-4695-4c1b-ae84-6632313f6b14
+          SslSupportMethod: sni-only
+Outputs:
+  CFDistributionDomainName:
+    Value: !GetAtt CloudFrontDistribution.DomainName
+    Description: cloudFront distribution domain name
+  CFDistributionId:
+    Value: !Ref CloudFrontDistribution
+    Description: cloudFront distribution id

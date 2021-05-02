@@ -1,0 +1,109 @@
+Parameters:
+  RepositoryName:
+    Description: CodeComit-Repository-Name
+    Type: String
+    Default: devops-training
+  BranchName:
+    Description: CodeCommit-Branch-Name
+    Type: String
+    Default: delete-me
+
+Resources:
+  AppPipeline:
+    Type: 'AWS::CodePipeline::Pipeline'
+    Properties:
+      Name: devops-training-task4-pipeline
+      RoleArn: "arn:aws:iam::287306605618:role/service-role/AWSCodePipelineServiceRole-us-east-1-devops-training-task1-pipe"
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: CodeCommit
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: 1
+                Provider: CodeCommit
+              OutputArtifacts:
+                - Name: SourceFiles
+              Configuration:
+                BranchName: !Ref BranchName
+                RepositoryName: !Ref RepositoryName
+                PollForSourceChanges: false
+              RunOrder: 1
+
+        - Name: CodeBuild
+          Actions:
+            - Name: Build
+              InputArtifacts:
+                - Name: SourceFiles
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              OutputArtifacts:
+                - Name: PackagedFile
+              Configuration:
+                ProjectName: !Ref DevopsTrainingCodeBuildProjectChangeSet
+              RunOrder: 1
+
+        - Name: GenerateChangeSet
+          Actions:
+            - Name : GenerateChangeSet
+              InputArtifacts:
+                - Name: PackagedFile
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: 1
+              Configuration:
+                ActionMode: CHANGE_SET_REPLACE
+                Capabilities: CAPABILITY_NAMED_IAM
+                ChangeSetName: devops-training-pipeline-changeset
+                RoleArn: "arn:aws:iam::287306605618:role/cloudformation-role"
+                StackName: delete-me-devops-engineers
+                TemplateConfiguration: PackagedFile::parameters.json
+                TemplatePath: PackagedFile::s3-bucket-changeset.yml
+              OutputArtifacts: 
+                - Name: OutputCodebuildFiles
+              RunOrder: 1
+        - Name: ExecuteChangeSet
+          Actions:
+            - Name : ExecuteChangeSet
+              InputArtifacts:
+                - Name: OutputCodebuildFiles
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: 1
+              Configuration:
+                ActionMode: CHANGE_SET_EXECUTE 
+                Capabilities: CAPABILITY_NAMED_IAM
+                ChangeSetName: devops-training-pipeline-changeset
+                RoleArn: "arn:aws:iam::287306605618:role/cloudformation-role"
+                StackName: delete-me-devops-engineers
+              OutputArtifacts: 
+                - Name: FinalOutput
+              RunOrder: 2
+
+      ArtifactStore:
+         Type: S3
+         Location: codepipeline-us-east-1-707616146600
+
+
+  DevopsTrainingCodeBuildProjectChangeSet:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: DevopsTrainingCodeBuildProjectChangeSet
+      ServiceRole: "arn:aws:iam::287306605618:role/service-role/codebuild-devops-training-task1-buildproject-service-role"
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:1.0
+      Source:
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 10

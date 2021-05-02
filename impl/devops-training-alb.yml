@@ -1,0 +1,116 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: cloudformation script to add https listner and certificate
+
+Resources:
+  sglb:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: dt-sg-lb
+      VpcId:
+        Fn::ImportValue: vpc-id
+      Tags:
+      - Key: Name
+        Value: dt-sg-lb-amway
+      SecurityGroupIngress:
+      - CidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        ToPort: 80
+        FromPort: 80
+      - CidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        ToPort: 443
+        FromPort: 443
+      SecurityGroupEgress:
+      - CidrIp: 0.0.0.0/0
+        ToPort: -1
+        IpProtocol: -1
+  lb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: dt-lb-amway
+      Scheme: internet-facing
+      Subnets:
+      - Fn::ImportValue: vpc-public-subnet-one-id
+      - Fn::ImportValue: vpc-public-subnet-two-id
+      SecurityGroups:
+      - Ref: sglb
+      Tags:
+      - Key: Name
+        Value: dt-lb
+  tg:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: dt-tg-lb-amway
+      Port: 80
+      Protocol: HTTP
+      TargetType: ip
+      VpcId:
+        Fn::ImportValue: vpc-id
+  HTTPlistener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+      - Type: forward
+        TargetGroupArn: !Ref tg
+      LoadBalancerArn: !Ref lb
+      Port: 80
+      Protocol: HTTP
+  HTTPSlistener:
+   Type: AWS::ElasticLoadBalancingV2::Listener
+   Properties:
+    Certificates:
+      - CertificateArn: arn:aws:acm:us-east-1:287306605618:certificate/349fe5dc-4695-4c1b-ae84-6632313f6b14
+    DefaultActions:
+      - Type: forward
+        TargetGroupArn: !Ref tg
+    LoadBalancerArn: !Ref lb
+    Port: 443
+    Protocol: HTTPS
+
+Outputs:
+  ALB:
+    Description: export alb
+    Value:
+      Ref: lb
+    Export:
+      Name: lb
+  ALBSG:
+    Description: ssh public access (http, https)
+    Value:
+      Fn::GetAtt:
+      - sglb
+      - GroupId
+    Export:
+      Name: lb-sg
+  AlbDnsName:
+    Description: lbv2 url
+    Value:
+      Fn::GetAtt:
+      - lb
+      - DNSName
+    Export:
+      Name: lb-dns
+  ALBArn:
+    Description: lbv2 arn
+    Value:
+      Ref: lb
+    Export:
+      Name: lb-arn
+  TargetGroupArn:
+    Description: application lb target group arn
+    Value:
+      Ref: tg
+    Export:
+      Name: lb-tg
+  ALBHTTPListener:
+    Description: application lb http listner arn
+    Value:
+      Ref: HTTPlistener
+    Export:
+      Name: lb-http-listener
+  ALBHTTPSListener:
+    Description: application lb https listner arn
+    Value:
+      Ref: HTTPSlistener
+    Export:
+      Name: lb-https-listener

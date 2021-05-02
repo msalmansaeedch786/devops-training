@@ -1,0 +1,61 @@
+Parameters: 
+  RepositoryName:
+    Description: CodeComit-Repository-Name
+    Type: String
+  BranchName:
+    Description: CodeCommit-Branch-Name
+    Type: String
+
+Resources:
+  AppPipeline:
+    Type: 'AWS::CodePipeline::Pipeline'
+    Properties:
+      Name: devops-training-task2-pipeline
+      RoleArn: "arn:aws:iam::287306605618:role/service-role/AWSCodePipelineServiceRole-us-east-1-devops-training-task1-pipe"
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: CodeCommit
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: 1
+                Provider: CodeCommit
+              OutputArtifacts:
+                - Name: SourceFiles
+              Configuration:
+                BranchName: !Ref BranchName
+                RepositoryName: !Ref RepositoryName
+                PollForSourceChanges: false
+              RunOrder: 1
+        - Name: CodeBuild
+          Actions:
+            - Name: Build
+              InputArtifacts:
+                - Name: SourceFiles
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref DevopsTrainingCodeBuildProject
+              RunOrder: 1
+      ArtifactStore:
+         Type: S3
+         Location: codepipeline-us-east-1-707616146600 
+
+  DevopsTrainingCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: DevopsTrainingCodeBuildProject
+      ServiceRole: "arn:aws:iam::287306605618:role/service-role/codebuild-devops-training-task1-buildproject-service-role"
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:1.0
+      Source:
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 10
